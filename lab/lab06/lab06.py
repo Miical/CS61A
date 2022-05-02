@@ -17,7 +17,11 @@ def make_adder_inc(a):
     11
     """
     "*** YOUR CODE HERE ***"
-
+    def adder(b):
+        nonlocal a
+        b, a = a + b, a + 1
+        return b 
+    return adder
 
 def make_fib():
     """Returns a function that returns the next Fibonacci number
@@ -43,6 +47,13 @@ def make_fib():
     True
     """
     "*** YOUR CODE HERE ***"
+    a, b = 0, 1
+    def fib():
+        nonlocal a, b
+        ret = a
+        a, b = b, a + b
+        return ret
+    return fib
 
 
 def insert_items(lst, entry, elem):
@@ -62,4 +73,11 @@ def insert_items(lst, entry, elem):
     True
     """
     "*** YOUR CODE HERE ***"
+    id, n = 0, len(lst)
+    for i in range(n):
+        if lst[id] == entry:
+            lst.insert(id+1, elem)
+            id += 1
+        id += 1
+    return lst
 
