@@ -220,3 +220,167 @@ class LongThrower(ThrowerAnt):
     # END Problem 4
 ```
 
+### Problem 5 (3 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 05 -u
+```
+
+Implement the `FireAnt`, which does damage when it receives damage. Specifically, if it is damaged by `amount` armor units, it does a damage of `amount` to all bees in its place (this is called *reflected damage*).
+
+If it dies, it does an additional amount of damage, which is specified by its `damage` attribute (by default 3).
+
+To implement this, we have to override the `FireAnt`'s `reduce_armor` method. Normally, `Insect.reduce_armor` will decrement the insect's `armor` by the given `amount` and remove the insect from its place if `armor` reaches zero or lower. However, `FireAnt` also does damage to all the bees in its place when it receives damage, with an additional damange specified by its `damage` attribute when its armor drops to 0, before being removed from its `place`.
+
+| **Class** | **Food Cost** | **Armor** |
+| --------- | ------------- | --------- |
+| `FireAnt` | 5             | 3         |
+
+> *Hint:* To damage the `FireAnt`, call the `reduce_armor` method inherited from `Ant`. Do *not* call `self.reduce_armor`, or you'll end up stuck in a recursive loop. (Can you see why?)
+>
+> *Hint:* To damage a `Bee`, call the `reduce_armor` method inherited from `Insect`.
+>
+> *Hint:* Damaging a bee may cause it to be removed from its place. If you iterate over a list, but change the contents of that list at the same time, you [may not visit all the elements](https://docs.python.org/3/tutorial/controlflow.html#for-statements). This can be prevented by making a copy of the list. You can either use a list slice, or use the built-in `list` function.
+>
+> ```
+>  >>> lst = [1,2,3,4]
+>  >>> lst[:]
+>  [1, 2, 3, 4]
+>  >>> list(lst)
+>  [1, 2, 3, 4]
+>  >>> lst[:] is not lst and list(lst) is not lst
+>  True
+> ```
+
+Once you've finished implementing the `FireAnt`, give it a class attribute `implemented` with the value `True`.
+
+> Note, even though you are overriding the `Insect.reduce_armor` function, you can still use it in your implementation by calling it directly (rather than via `self`). Note that this is not recursion (why?)
+
+```python
+    def reduce_armor(self, amount):
+        """Reduce armor by AMOUNT, and remove the FireAnt from its place if it
+        has no armor remaining.
+
+        Make sure to damage each bee in the current place, and apply the bonus
+        if the fire ant dies.
+        """
+        # BEGIN Problem 5
+        for bee in self.place.bees:
+            bee.reduce_armor(amount)
+        if self.armor <= amount:
+            for bee in self.place.bees[:]:
+                bee.reduce_armor(self.damage)
+        Ant.reduce_armor(self, amount)
+        # END Problem 5
+```
+
+### Problem 6 (2 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 06 -u
+```
+
+Implement the `HungryAnt`, which will select a random `Bee` from its `place` and eat it whole. After eating a `Bee`, it must spend 3 turns digesting before eating again. If there is no bee available to eat, it will do nothing.
+
+| **Class**   | **Food Cost** | **Armor** |
+| ----------- | ------------- | --------- |
+| `HungryAnt` | 4             | 1         |
+
+Give `HungryAnt` a `time_to_digest` class attribute that holds the number of turns that it takes a `HungryAnt` to digest (default to 3). Also, give each `HungryAnt` an instance attribute `digesting` that counts the number of turns it has left to digest (default is 0, since it hasn't eaten anything at the beginning).
+
+Implement the `action` method of the `HungryAnt` to check if it is digesting; if so, decrement its `digesting` counter. Otherwise, eat a random `Bee` in its `place` by reducing the `Bee`'s armor to 0 and restart the `digesting` timer.
+
+```python 
+class HungryAnt(Ant):
+    """HungryAnt will take three turns to digest a Bee in its place.
+    While digesting, the HungryAnt can't eat another Bee.
+    """
+    name = 'Hungry'
+    food_cost = 4
+    # OVERRIDE CLASS ATTRIBUTES HERE
+    # BEGIN Problem 6
+    implemented = True   # Change to True to view in the GUI
+    time_to_digest = 3
+    # END Problem 6
+
+    def __init__(self, armor=1):
+        # BEGIN Problem 6
+        self.digesting = 0
+        Ant.__init__(self, armor) 
+        # END Problem 6
+
+    def eat_bee(self, bee):
+        # BEGIN Problem 6
+        self.digesting = self.time_to_digest
+        bee.reduce_armor(bee.armor)
+        # END Problem 6
+
+    def action(self, gamestate):
+        # BEGIN Problem 6
+        if self.digesting:
+            if self.digesting:
+                self.digesting -= 1
+        else:
+            if self.place.bees:
+                self.eat_bee(rANTdom_else_none(self.place.bees))
+        # END Problem 6
+```
+
+### Problem 7 (2 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 07 -u
+```
+
+Implement the `NinjaAnt`, which damages all `Bee`s that pass by, but can never be stung.
+
+| **Class**                                                    | **Food Cost** | **Armor** |
+| ------------------------------------------------------------ | ------------- | --------- |
+| ![img](https://inst.eecs.berkeley.edu/~cs61a/su20/proj/ants/assets/insects/ant_ninja.gif) `NinjaAnt` | 5             | 1         |
+
+A `NinjaAnt` does not block the path of a `Bee` that flies by. To implement this behavior, first modify the `Ant` class to include a new class attribute `blocks_path` that is `True` by default. Set the value of `blocks_path` to `False` in the `NinjaAnt` class.
+
+Second, modify the `Bee`'s method `blocked` to return `False` if either there is no `Ant` in the `Bee`'s `place` or if there is an `Ant`, but its `blocks_path` attribute is `False`. Now `Bee`s will just fly past `NinjaAnt`s.
+
+Finally, we want to make the `NinjaAnt` damage all `Bee`s that fly past. Implement the `action` method in `NinjaAnt` to reduce the armor of all `Bee`s in the same `place` as the `NinjaAnt` by its `damage` attribute. Similar to the `FireAnt`, you must iterate over a list of bees that may change.
+
+> *Hint*: Having trouble visualizing the test cases? Try drawing them out on paper! See the example in [Game Layout](https://inst.eecs.berkeley.edu/~cs61a/su20/proj/ants/#game-layout) for help.
+
+```python
+class NinjaAnt(Ant):
+    """NinjaAnt does not block the path and damages all bees in its place."""
+
+    name = 'Ninja'
+    damage = 1
+    food_cost = 5
+    # OVERRIDE CLASS ATTRIBUTES HERE
+    # BEGIN Problem 7
+    blocks_path = False
+    implemented = True# Change to True to view in the GUI
+    # END Problem 7
+
+    def action(self, gamestate):
+        # BEGIN Problem 7
+        for bee in self.place.bees[:]:
+            bee.reduce_armor(self.damage)
+        # END Problem 7
+
+# ----------
+
+    def blocked(self):
+        """Return True if this Bee cannot advance to the next Place."""
+        # Phase 4: Special handling for NinjaAnt
+        # BEGIN Problem 7
+        if self.place.ant:
+            return self.place.ant.blocks_path
+        else:
+            return self.place.ant is not None
+        # END Problem 7
+```
+
