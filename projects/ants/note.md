@@ -384,3 +384,175 @@ class NinjaAnt(Ant):
         # END Problem 7
 ```
 
+### Problem 8 (1 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 08 -u
+```
+
+We are going to add some protection to our glorious home base by implementing the `WallAnt`, which is an ant that does nothing each turn. A `WallAnt` is useful because it has a large `armor` value.
+
+| **Class** | **Food Cost** | **Armor** |
+| --------- | ------------- | --------- |
+| `WallAnt` | 4             | 4         |
+
+Unlike with previous ants, we have not provided you with a class header. Implement the `WallAnt` class from scratch. Give it a class attribute `name` with the value `'Wall'` (so that the graphics work) and a class attribute `implemented` with the value `True` (so that you can use it in a game).
+
+```python
+class WallAnt(Ant):
+    name = 'Wall'
+    food_cost = 4
+    implemented = True
+
+    def __init__(self, armor=4):
+        Ant.__init__(self, armor)
+```
+
+### Problem 9 (5 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 09 -u
+```
+
+Right now, our ants are quite frail. We'd like to provide a way to help them last longer against the onslaught of the bees. Enter the `BodyguardAnt`.
+
+| **Class**        | **Food Cost** | **Armor** |
+| ---------------- | ------------- | --------- |
+| ! `BodyguardAnt` | 4             | 2         |
+
+A `BodyguardAnt` differs from a normal ant because it is a `ContainerAnt`; it can contain another ant and protect it, all in one `Place`. When a `Bee` stings the ant in a `Place` where one ant contains another, only the container is damaged. The ant inside the container can still perform its original action. If the container perishes, the contained ant still remains in the place (and can then be damaged).
+
+Each `ContainerAnt` has an instance attribute `contained_ant` that stores the ant it contains. It initially starts off as `None`, to indicate that no ant is being protected. Implement the `contain_ant` method so that it sets the bodyguard's `contained_ant` instance attribute to the passed in `ant` argument. Also implement the `ContainerAnt`'s `action` method to perform its `contained_ant`'s action if it is currently containing an ant.
+
+In addition, you will need to make the following modifications throughout your program so that a container and its contained ant can both occupy a place at the same time (a maximum of two ants per place), but only if exactly one is a container:
+
+1. Implement the method `ContainerAnt.can_contain` which takes an `other` ant as an argument and returns `True` if:
+
+   - This ant does not already contain another ant.
+   - The other ant is not a container.
+
+   Currently `Ant.can_contain` returns False by default; it needs to be overridden in `ContainerAnt`
+
+2. Modify `Ant.add_to` to allow a container and a non-container ant to occupy the same place according to the following rules:
+
+   - If the ant currently occupying a place can contain the current ant, then it does.
+   - If the current ant can contain the ant in the space, then it does.
+   - If neither `Ant` can contain the other, raise the same `AssertionError` as before (the one already present in the starter code).
+
+3. Add a `BodyguardAnt.__init__` that changes the default amount of armor.
+
+> Hint: You may find the `isinstance` function useful for checking if an object is an instance of a given class. For example:
+>
+> ```
+>     >>> a = Foo()
+>     >>> isinstance(a, Foo)
+>     True
+> ```
+
+> Note: the constructor of `ContainerAnt.__init__` is implemented as such
+>
+> ```
+>     def __init__(self, *args, **kwargs):
+>         Ant.__init__(self, *args, **kwargs)
+>         self.contained_ant = None
+> ```
+>
+> As we saw in Hog, we have that `args` is bound to all positional arguments (that is all arguments not passed not with keywords, and `kwargs` is bound to all the keyword arguments. This ensures that both sets of arguments are passed to the Ant constructor).
+>
+> Effectively, this means the constructor is exactly the same as `Ant.__init__` but sets `self.contained_ant = None`
+
+```python 
+class ContainerAnt(Ant):
+    def __init__(self, *args, **kwargs):
+        Ant.__init__(self, *args, **kwargs)
+        self.contained_ant = None
+
+    def can_contain(self, other):
+        # BEGIN Problem 9
+        return not self.contained_ant and not isinstance(other, ContainerAnt)
+        # END Problem 9
+
+    def contain_ant(self, ant):
+        # BEGIN Problem 9
+        self.contained_ant = ant
+        # END Problem 9
+
+    def remove_ant(self, ant):
+        if self.contained_ant is not ant:
+            assert False, "{} does not contain {}".format(self, ant)
+        self.contained_ant = None
+
+    def remove_from(self, place):
+        # Special handling for container ants
+        if place.ant is self:
+            # Container was removed. Contained ant should remain in the game
+            place.ant = place.ant.contained_ant
+            Insect.remove_from(self, place)
+        else:
+            # default to normal behavior
+            Ant.remove_from(self, place)
+
+    def action(self, gamestate):
+        # BEGIN Problem 9
+        if self.contained_ant:
+            self.contained_ant.action(gamestate)
+        # END Problem 9
+        
+# ----------------
+
+    def add_to(self, place):
+        if place.ant is None:
+            place.ant = self
+        elif place.ant.can_contain(self):
+            place.ant.contain_ant(self)
+        elif self.can_contain(place.ant):
+            self.contain_ant(place.ant)
+            place.ant = self 
+        else:   
+            assert place.ant is None, 'Two ants in {0}'.format(place)
+        Insect.add_to(self, place)
+```
+
+### Problem 10 (1 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 10 -u
+```
+
+The `BodyguardAnt` provides great defense, but they say the best defense is a good offense. The `TankAnt` is a container that protects an ant in its place and also deals 1 damage to all bees in its place each turn.
+
+| **Class** | **Food Cost** | **Armor** |
+| --------- | ------------- | --------- |
+| `TankAnt` | 6             | 2         |
+
+You should not need to modify any code outside of the `TankAnt` class. If you find yourself needing to make changes elsewhere, look for a way to write your code for the previous question such that it applies not just to `BodyguardAnt` and `TankAnt` objects, but to container ants in general.
+
+```python
+class TankAnt(ContainerAnt):
+    """TankAnt provides both offensive and defensive capabilities."""
+
+    name = 'Tank'
+    damage = 1
+    food_cost = 6
+    # OVERRIDE CLASS ATTRIBUTES HERE
+    # BEGIN Problem 10
+    implemented = True   # Change to True to view in the GUI
+    # END Problem 10
+
+    def __init__(self, armor=2):
+        ContainerAnt.__init__(self, armor)
+
+    def action(self, gamestate):
+        # BEGIN Problem 10
+        for bee in self.place.bees[:]:
+            bee.reduce_armor(self.damage)
+        ContainerAnt.action(self, gamestate)
+        # END Problem 10
+```
+
