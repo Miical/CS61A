@@ -556,3 +556,140 @@ class TankAnt(ContainerAnt):
         # END Problem 10
 ```
 
+## Phase 4: Water and Might
+
+In the final phase, you're going to add one last kick to the game by introducing a new type of place and new ants that are able to occupy this place. One of these ants is the most important ant of them all: the queen of the colony.
+
+### Problem 11 (1 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 11 -u
+```
+
+Let's add water to the colony! Currently there are only two types of places, the `Hive` and a basic `Place`. To make things more interesting, we're going to create a new type of `Place` called `Water`.
+
+Only an ant that is watersafe can be deployed to a `Water` place. In order to determine whether an `Insect` is watersafe, add a new attribute to the `Insect` class named `is_watersafe` that is `False` by default. Since bees can fly, make their `is_watersafe` attribute `True`, overriding the default.
+
+Now, implement the `add_insect` method for `Water`. First, add the insect to the place regardless of whether it is watersafe. Then, if the insect is not watersafe, reduce the insect's armor to 0. *Do not repeat code from elsewhere in the program.* Instead, use methods that have already been defined.
+
+```python 
+class Water(Place):
+    """Water is a place that can only hold watersafe insects."""
+
+    def add_insect(self, insect):
+        """Add an Insect to this place. If the insect is not watersafe, reduce
+        its armor to 0."""
+        # BEGIN Problem 11
+        Place.add_insect(self, insect)
+        if not insect.is_watersafe:
+            insect.reduce_armor(insect.armor)
+        # END Problem 11
+```
+
+### Problem 12 (1 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 12 -u
+```
+
+Currently there are no ants that can be placed on `Water`. Implement the `ScubaThrower`, which is a subclass of `ThrowerAnt` that is more costly and watersafe, but otherwise identical to its base class. A `ScubaThrower` should not lose its armor when placed in `Water`.
+
+| **Class**      | **Food Cost** | **Armor** |
+| -------------- | ------------- | --------- |
+| `ScubaThrower` | 6             | 1         |
+
+We have not provided you with a class header. Implement the `ScubaThrower` class from scratch. Give it a class attribute `name` with the value `'Scuba'` (so that the graphics work) and remember to set the class attribute `implemented` with the value `True` (so that you can use it in a game).
+
+```python 
+class ScubaThrower(ThrowerAnt):
+    is_watersafe = True
+    name = 'Scuba'
+    implemented = True
+    food_cost = 6
+    def __init__(self, armor=1):
+        ThrowerAnt.__init__(self, armor)
+```
+
+### Problem 13 (4 pt)
+
+Before writing any code, read the instructions and test your understanding of the problem:
+
+```
+python3 ok -q 13 -u
+```
+
+Finally, implement the `QueenAnt`. The queen is a waterproof `ScubaThrower` that inspires her fellow ants through her bravery. In addition to the standard `ScubaThrower` action, the `QueenAnt` doubles the damage of all the ants behind her each time she performs an action. Once an ant's damage has been doubled, it is *not* doubled again for subsequent turns.
+
+> Note that the reflected damage of a fire ant should not be doubled, only the extra damage it deals when its armor is reduced to 0
+
+| **Class**  | **Food Cost** | **Armor** |
+| ---------- | ------------- | --------- |
+| `QueenAnt` | 7             | 1         |
+
+However, with great power comes great responsibility. The `QueenAnt` is governed by three special rules:
+
+1. If the queen ever has its armor reduced to 0, the bees win. The bees also still win if any bee reaches the end of a tunnel. You can call `bees_win()` to signal to the simulator that the game is over.
+2. There can be only one true queen. Any queen instantiated beyond the first one is an impostor, and should have its armor reduced to 0 upon taking its first action, without doubling any ant's damage or throwing anything. If an impostor dies, the game should still continue as normal.
+3. The true (first) queen cannot be removed. Attempts to remove the queen should have no effect (but should not cause an error). You will need to override `Ant.remove_from` in `QueenAnt` to enforce this condition.
+
+Some hints:
+
+- All instances of the same class share the same class attributes. How can you use this information to tell whether a QueenAnt instance is the true QueenAnt?
+- You can find each `Place` in a tunnel behind the `QueenAnt` by starting at the ant's `place.exit` and then repeatedly following its `exit`. The `exit` of a `Place` at the end of a tunnel is `None`.
+- To avoid doubling an ant's damage twice, mark the ants that have been buffed in some way, in a way that persists across calls to `QueenAnt.action`.
+- When buffing the ants' damage, keep in mind that there can be more than one ant in one place!
+
+```python
+class QueenAnt(ScubaThrower):  # You should change this line
+# END Problem 13
+    """The Queen of the colony. The game is over if a bee enters her place."""
+
+    name = 'Queen'
+    food_cost = 7
+    # OVERRIDE CLASS ATTRIBUTES HERE
+    # BEGIN Problem 13
+    implemented = True   # Change to True to view in the GUI
+    # END Problem 13
+    true_queen = True
+    buffed_ants = []
+
+    def __init__(self, armor=1):
+        # BEGIN Problem 13
+        if QueenAnt.true_queen:
+            self.true_queen = True
+            QueenAnt.true_queen = False
+        ScubaThrower.__init__(self, armor)
+        # END Problem 13
+
+    def action(self, gamestate):
+        """A queen ant throws a leaf, but also doubles the damage of ants
+        in her tunnel.
+
+        Impostor queens do only one thing: reduce their own armor to 0.
+        """
+        # BEGIN Problem 13
+        if not self.true_queen:
+            self.reduce_armor(self.armor)
+        else:
+            ScubaThrower.action(self, gamestate)
+            present_place = self.place.exit
+            while present_place:
+                if not present_place.ant:
+                    present_place = present_place.exit
+                    continue
+                if isinstance(present_place.ant, ContainerAnt) and\
+                    present_place.ant.contained_ant:
+                    if present_place.ant.contained_ant not in self.buffed_ants:
+                        present_place.ant.contained_ant.damage = \
+                            present_place.ant.contained_ant.damage * 2
+                        self.buffed_ants.append(present_place.ant.contained_ant)
+                if present_place.ant not in self.buffed_ants:
+                    self.buffed_ants.append(present_place.ant)
+                    present_place.ant.damage = present_place.ant.damage * 2
+                present_place = present_place.exit
+        # END Problem 13
+```
