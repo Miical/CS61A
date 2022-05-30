@@ -15,7 +15,7 @@ Return the canonical string representation of the object.
 
 For most object types, eval(repr(object0 == object))
 
-![image-20220512094430180](Lecture_20_Interfaces_and_Misc_Python _Features.assets/image-20220512094430180.png)
+![image-20220512094430180](Lecture_20_Interfaces_and_Misc_Python_Features.assets/image-20220512094430180.png)
 
 **The str String for Object**
 
@@ -45,7 +45,7 @@ The behavior of str is also complicated:
 - Question: How would we implement this behavior?
 - str is a class, not a function
 
-![image-20220512100428003](Lecture_20_Interfaces_and_Misc_Python _Features.assets/image-20220512100428003.png)
+![image-20220512100428003](Lecture_20_Interfaces_and_Misc_Python_Features.assets/image-20220512100428003.png)
 
 **Interfaces**
 
@@ -69,7 +69,7 @@ __float__ Method invoked to convert an object to a flot(real number)
 
   Adding instances of user-defined classes invokes either the `__add__` or `__radd__` method 
 
-![image-20220512105315688](Lecture_20_Interfaces_and_Misc_Python _Features.assets/image-20220512105315688.png)
+![image-20220512105315688](Lecture_20_Interfaces_and_Misc_Python_Features.assets/image-20220512105315688.png)
 
 
 
