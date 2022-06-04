@@ -154,7 +154,7 @@ Write a function `is_bst`, which takes a Tree `t` and returns `True` if, and onl
 
 An example of a BST is:
 
-![bst](https://miro.medium.com/max/1424/1*F8MmBnUQyOA8-Rajg69nSQ.png)
+![bst](note.assets/1F8MmBnUQyOA8-Rajg69nSQ.png)
 
 Note that, if a node has only one child, that child could be considered either the left or right child. You should take this into consideration.
 
