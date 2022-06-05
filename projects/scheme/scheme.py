@@ -34,9 +34,11 @@ def scheme_eval(expr, env, _=None): # Optional third argument is ignored
     if scheme_symbolp(first) and first in SPECIAL_FORMS:
         return SPECIAL_FORMS[first](rest, env)
     else:
-        # BEGIN PROBLEM 4
-        "*** YOUR CODE HERE ***"
-        # END PROBLEM 4
+        procedure = scheme_eval(first, env)
+        validate_procedure(procedure)
+        evaluated_args = rest.map(lambda x: scheme_eval(x, env))
+        return scheme_apply(procedure, evaluated_args, env)
+
 
 def self_evaluating(expr):
     """Return whether EXPR evaluates to itself."""
@@ -151,9 +153,18 @@ class BuiltinProcedure(Procedure):
             raise SchemeError('arguments are not in a list: {0}'.format(args))
         # Convert a Scheme list to a Python list
         python_args = []
-        # BEGIN PROBLEM 3
-        "*** YOUR CODE HERE ***"
-        # END PROBLEM 3
+        def convert_to_list(pair):
+            nonlocal python_args
+            if pair != nil:
+                python_args.append(pair.first)
+                convert_to_list(pair.rest)
+        convert_to_list(args)
+        if self.use_env:
+            python_args.append(env)
+        try:
+            return self.fn(*python_args)
+        except TypeError:
+            raise SchemeError('The wrong number of arguments were passed')
 
 class LambdaProcedure(Procedure):
     """A procedure defined by a lambda expression or a define form."""
@@ -231,9 +242,8 @@ def do_define_form(expressions, env):
     target = expressions.first
     if scheme_symbolp(target):
         validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
-        # BEGIN PROBLEM 5
-        "*** YOUR CODE HERE ***"
-        # END PROBLEM 5
+        env.define(target, scheme_eval(expressions.rest.first, env))
+        return target
     elif isinstance(target, Pair) and scheme_symbolp(target.first):
         # BEGIN PROBLEM 9
         "*** YOUR CODE HERE ***"
@@ -250,9 +260,7 @@ def do_quote_form(expressions, env):
     Pair('+', Pair('x', Pair(2, nil)))
     """
     validate_form(expressions, 1, 1)
-    # BEGIN PROBLEM 6
-    "*** YOUR CODE HERE ***"
-    # END PROBLEM 6
+    return expressions.first
 
 def do_begin_form(expressions, env):
     """Evaluate a begin form.

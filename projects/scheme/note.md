@@ -214,3 +214,291 @@ Implement the `define` and `lookup` methods of the `Frame` class. Each `Frame` o
             raise SchemeError('unknown identifier: {0}'.format(symbol))
 ```
 
+#### Problem 3 (2 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 03 -u
+```
+
+To be able to call built-in procedures, such as `+`, you need to complete the `apply` method in the class `BuiltinProcedure`. Built-in procedures are applied by calling a corresponding Python function that implements the procedure. For example, the `+` procedure in Scheme is implemented as the `add` function in Python.
+
+> To see a list of all Scheme built-in procedures used in the project, look in the `scheme_builtins.py` file. Any function decorated with `@builtin` will be added to the globally-defined `BUILTINS` list.
+
+A `BuiltinProcedure` has two instance attributes:
+
+- `fn` is the *Python* function that implements the built-in Scheme procedure.
+- `use_env` is a Boolean flag that indicates whether or not this built-in procedure will expect the current environment to be passed in as the last argument. The environment is required, for instance, to implement the built-in `eval` procedure.
+
+The `apply` method of `BuiltinProcedure` takes a list of argument values and the current environment. Note that `args` is a Scheme list represented as a `Pair` object. Your implementation should do the following:
+
+- Convert the Scheme list to a Python list of arguments. *Hint:* `args` is a Pair, which has a `.first` and `.rest` similar to a Linked List. Think about how you would put the values of a Linked List into a list.
+- If `self.use_env` is `True`, then add the current environment `env` as the last argument to this Python list.
+- Call `self.fn` on all of those arguments using `*args` notation (`f(1, 2, 3)` is equivalent to `f(*[1, 2, 3]`)), and return the result.
+- If calling the function results in a `TypeError` exception being raised, then the wrong number of arguments were passed. Use a `try`/`except` block to intercept the exception and raise an appropriate `SchemeError` in its place.
+
+`try`/`except` is a block we can use in Python to catch errors and handle that might be thrown by the Python interpreter. The general structure of a `try`/`except` block is
+
+```
+try:
+    <code that might throw an error>
+except <type of error that might be thrown>:
+    <code that we want to execute instead if the error happens>
+```
+
+For example, an implementation of `try`/`except` could be
+
+```
+>>> def try_divide(a, b):
+...     try:
+...         return a / b
+...     except ZeroDivisionError:
+...         print('unacceptable!')
+...
+>>> try_divide(3, 4)
+0.75
+>>> try_divide(1, 0)
+unacceptable!
+```
+
+```python
+def apply(self, args, env):
+        """Apply SELF to ARGS in ENV, where ARGS is a Scheme list (a Pair instance).
+
+        >>> env = create_global_frame()
+        >>> plus = env.bindings['+']
+        >>> twos = Pair(2, Pair(2, nil))
+        >>> plus.apply(twos, env)
+        4
+        """
+        if not scheme_listp(args):
+            raise SchemeError('arguments are not in a list: {0}'.format(args))
+        # Convert a Scheme list to a Python list
+        python_args = []
+        def convert_to_list(pair):
+            nonlocal python_args
+            if pair != nil:
+                python_args.append(pair.first)
+                convert_to_list(pair.rest)
+        convert_to_list(args)
+        if self.use_env:
+            python_args.append(env)
+        try:
+            return self.fn(*python_args)
+        except TypeError:
+            raise SchemeError('The wrong number of arguments were passed')
+```
+
+#### Problem 4 (2 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 04 -u
+```
+
+`scheme_eval` evaluates a Scheme expression, represented as a sequence of `Pair` objects, in a given environment. Most of `scheme_eval` has already been implemented for you. It currently looks up names in the current environment, returns self-evaluating expressions (like numbers) and evaluates special forms.
+
+Implement the missing part of `scheme_eval`, which evaluates a call expression. To evaluate a call expression, we do the following:
+
+1. Evaluate the operator (which should evaluate to an instance of `Procedure`)
+2. Evaluate all of the operands (when there are multiple operands, we evaluate from left-to-right)
+3. Apply the procedure on the evaluated operands, and return the result
+
+You'll have to recursively call `scheme_eval` in the first two steps. Here are some other functions/methods you should use:
+
+- The `validate_procedure` function raises an error if the provided argument is not a Scheme procedure. You can use this to validate that your operator indeed evaluates to a procedure.
+- The `map` method of `Pair` returns a new Scheme list constructed by applying a *one-argument function* to every item in a Scheme list.
+- The `scheme_apply` function applies a Scheme procedure to a Scheme list of arguments.
+
+```python
+
+def scheme_eval(expr, env, _=None): # Optional third argument is ignored
+    """Evaluate Scheme expression EXPR in environment ENV.
+
+    >>> expr = read_line('(+ 2 2)')
+    >>> expr
+    Pair('+', Pair(2, Pair(2, nil)))
+    >>> scheme_eval(expr, create_global_frame())
+    4
+    """
+    # Evaluate atoms
+    if scheme_symbolp(expr):
+        return env.lookup(expr)
+    elif self_evaluating(expr):
+        return expr
+
+    # All non-atomic expressions are lists (combinations)
+    if not scheme_listp(expr):
+        raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
+    first, rest = expr.first, expr.rest
+    if scheme_symbolp(first) and first in SPECIAL_FORMS:
+        return SPECIAL_FORMS[first](rest, env)
+    else:
+        procedure = scheme_eval(first, env)
+        validate_procedure(procedure)
+        evaluated_args = rest.map(lambda x: scheme_eval(x, env))
+        return scheme_apply(procedure, evaluated_args, env)
+```
+
+#### Problem 5 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 05 -u
+```
+
+Next, we'll implement defining names. Recall that the `define` special form in Scheme can be used to either assign a name to the value of a given expression or to create a procedure and bind it to a name:
+
+```
+scm> (define a (+ 2 3))  ; Binds the name a to the value of (+ 2 3)
+a
+scm> (define (foo x) x)  ; Creates a procedure and binds it to the name foo
+foo
+```
+
+The type of the first operand tells us what is being defined:
+
+- If it is a symbol, e.g. `a`, then the expression is defining a name
+- If it is a list, e.g. `(foo x)`, then the expression is defining a procedure.
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#define) to understand the behavior of the `define` special form! This problem only provides the behavior for binding expressions, not procedures, to names.
+
+There are two missing parts in the `do_define_form` function, which handles the `(define ...)` special forms. For this problem, implement **just the first part**, which evaluates the second operand to obtain a value and binds the first operand, a symbol, to that value. `do_define_form` should return the name after performing the binding.
+
+```
+scm> (define tau (* 2 3.1415926))
+tau
+```
+
+```python
+def do_define_form(expressions, env):
+    """Evaluate a define form.
+
+    >>> # Problem 5
+    >>> env = create_global_frame()
+    >>> do_define_form(read_line("(x 2)"), env)
+    'x'
+    >>> scheme_eval("x", env)
+    2
+    >>> do_define_form(read_line("(x (+ 2 8))"), env)
+    'x'
+    >>> scheme_eval("x", env)
+    10
+    >>> # Problem 9
+    >>> env = create_global_frame()
+    >>> do_define_form(read_line("((f x) (+ x 2))"), env)
+    'f'
+    >>> scheme_eval(read_line("(f 3)"), env)
+    5
+    """
+    validate_form(expressions, 2) # Checks that expressions is a list of length at least 2
+    target = expressions.first
+    if scheme_symbolp(target):
+        validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
+        env.define(target, scheme_eval(expressions.rest.first, env))
+        return target
+    elif isinstance(target, Pair) and scheme_symbolp(target.first):
+        # BEGIN PROBLEM 9
+        "*** YOUR CODE HERE ***"
+        # END PROBLEM 9
+    else:
+        bad_target = target.first if isinstance(target, Pair) else target
+        raise SchemeError('non-symbol: {0}'.format(bad_target))
+```
+
+#### Problem 6 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 06 -u
+```
+
+To complete the core functionality, let's implement quoting in our interpreter. In Scheme, you can quote expressions in two ways: with the `quote` special form or with the symbol `'`. Recall that the `quote` special form returns its operand expression without evaluating it:
+
+```
+scm> (quote hello)
+hello
+scm> '(cons 1 2)  ; Equivalent to (quote (cons 1 2))
+(cons 1 2)
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#quote) to understand the behavior of the `quote` special form.
+
+Implement the `do_quote_form` function in `scheme.py` so that it simply returns the unevaluated operand of the quote.
+
+After completing this function, you should be able to evaluate quoted expressions. Try out some of the following in your interpreter!
+
+```
+scm> (quote a)
+a
+scm> (quote (1 2))
+(1 2)
+scm> (quote (1 (2 three (4 5))))
+(1 (2 three (4 5)))
+scm> (car (quote (a b)))
+a
+```
+
+Next, complete your implementation of `scheme_read` in `scheme_reader.py` by handling the case for `'`, ```, and `,`. First, notice that `'<expr>` translates to `(quote <expr>)`, ``<expr>` translates to `(quasiquote <expr>)`, and `,<expr>` translates to `(unquote <expr>)`. That means that we need to wrap the expression following one of these characters (which you can get by recursively calling `scheme_read`) into the appropriate special form, which, like all special forms, is really just a list.
+
+For example, `'bagel` should be represented as `Pair('quote', Pair('bagel', nil))`
+
+For another example, `'(1 2)` should be represented as `Pair('quote', Pair(Pair(1, Pair(2, nil)), nil))`.
+
+After completing your `scheme_read` implementation, the following quoted expressions should now work as well.""
+
+```
+scm> 'hello
+hello
+scm> '(1 2)
+(1 2)
+scm> '(1 (2 three (4 5)))
+(1 (2 three (4 5)))
+scm> (car '(a b))
+a
+scm> (eval (cons 'car '('(1 2))))
+1
+```
+
+```python
+def do_quote_form(expressions, env):
+    """Evaluate a quote form.
+
+    >>> env = create_global_frame()
+    >>> do_quote_form(read_line("((+ x 2))"), env)
+    Pair('+', Pair('x', Pair(2, nil)))
+    """
+    validate_form(expressions, 1, 1)
+    return expressions.first
+
+def scheme_read(src):
+    """Read the next expression from SRC, a Buffer of tokens.
+
+    >>> scheme_read(Buffer(tokenize_lines(['nil'])))
+    nil
+    >>> scheme_read(Buffer(tokenize_lines(['1'])))
+    1
+    >>> scheme_read(Buffer(tokenize_lines(['true'])))
+    True
+    >>> scheme_read(Buffer(tokenize_lines(['(+ 1 2)'])))
+    Pair('+', Pair(1, Pair(2, nil)))
+    """
+    if src.current() is None:
+        raise EOFError
+    val = src.pop_first() # Get the first token
+    if val == 'nil':
+        return nil
+    elif val == '(':
+        return read_tail(src)
+    elif val in quotes:
+        return Pair(quotes[val], Pair(scheme_read(src), nil))
+    elif val not in DELIMITERS:
+        return val
+    else:
+        raise SyntaxError('unexpected token: {0}'.format(val))
+```
+
