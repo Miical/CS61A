@@ -502,3 +502,528 @@ def scheme_read(src):
         raise SyntaxError('unexpected token: {0}'.format(val))
 ```
 
+## Part III: User-Defined Procedures
+
+> **Important submission note:** For full credit:
+>
+> - submit with Parts III and IV complete by **Thursday, 8/6** (worth 1 pt), and
+> - submit the entire project by **Monday, 8/10**. You will get an extra credit point for submitting the entire project by Sunday, 8/9.
+
+User-defined procedures are represented as instances of the `LambdaProcedure` class. A `LambdaProcedure` instance has three instance attributes:
+
+- `formals` is a Scheme list of the formal parameters (symbols) that name the arguments of the procedure.
+- `body` is a Scheme list of expressions; the body of the procedure.
+- `env` is the environment in which the procedure was **defined**.
+
+#### Problem 7 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 07 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#begin) to understand the behavior of the `begin` special form!
+
+Change the `eval_all` function (which is called from `do_begin_form`) to complete the implementation of the `begin` special form. A `begin` expression is evaluated by evaluating all sub-expressions in order. The value of the `begin` expression is the value of the final sub-expression.
+
+```
+scm> (begin (+ 2 3) (+ 5 6))
+11
+scm> (define x (begin (display 3) (newline) (+ 2 3)))
+3
+x
+scm> (+ x 3)
+8
+scm> (begin (print 3) '(+ 2 3))
+3
+(+ 2 3)
+```
+
+If `eval_all` is passed an empty list of expressions (`nil`), then it should return the Python value `None`, which represents an undefined Scheme value.
+
+```python
+def eval_all(expressions, env):
+    """Evaluate each expression in the Scheme list EXPRESSIONS in
+    environment ENV and return the value of the last.
+
+    >>> eval_all(read_line("(1)"), create_global_frame())
+    1
+    >>> eval_all(read_line("(1 2)"), create_global_frame())
+    2
+    >>> x = eval_all(read_line("((print 1) 2)"), create_global_frame())
+    1
+    >>> x
+    2
+    >>> eval_all(read_line("((define x 2) x)"), create_global_frame())
+    2
+    """
+    # BEGIN PROBLEM 7
+    if expressions == nil:
+        return None
+    elif expressions.rest == nil:
+        return scheme_eval(expressions.first, env)
+    else:
+        scheme_eval(expressions.first, env)
+        return eval_all(expressions.rest, env)
+    # END PROBLEM 7
+```
+
+#### Problem 8 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 08 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#lambda) to understand the behavior of the `lambda` special form!
+
+A `LambdaProcedure` represents a user-defined procedure. It has a list of `formals` (parameter names), a `body` of expressions to evaluate, and a parent frame `env`.
+
+Implement the `do_lambda_form` function, which creates and returns a `LambdaProcedure` instance. While you cannot call a user-defined procedure yet, you can verify that you have created the procedure correctly by typing a lambda expression into the interpreter prompt:
+
+```
+scm> (lambda (x y) (+ x y))
+(lambda (x y) (+ x y))
+```
+
+In Scheme, it is legal to place more than one expression in the body of a procedure (there must be at least one expression). The `body` attribute of a `LambdaProcedure` instance is a Scheme list of body expressions.
+
+```python
+def do_lambda_form(expressions, env):
+    """Evaluate a lambda form.
+
+    >>> env = create_global_frame()
+    >>> do_lambda_form(read_line("((x) (+ x 2))"), env)
+    LambdaProcedure(Pair('x', nil), Pair(Pair('+', Pair('x', Pair(2, nil))), nil), <Global Frame>)
+    """
+    validate_form(expressions, 2)
+    formals = expressions.first
+    validate_formals(formals)
+    return LambdaProcedure(expressions.first, expressions.rest, env)
+```
+
+#### Problem 9 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 09 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#define) to understand the behavior of the `define` special form! In this problem, we'll finish defining the `define` form for procedures.
+
+Currently, your Scheme interpreter is able to bind symbols to user-defined procedures in the following manner:
+
+```
+scm> (define f (lambda (x) (* x 2)))
+f
+```
+
+However, we'd like to be able to use the shorthand form of defining named procedures:
+
+```
+scm> (define (f x) (* x 2))
+```
+
+Modify the `do_define_form` function so that it correctly handles the shorthand procedure definition form above. Make sure that it can handle multi-expression bodies.
+
+Your implementation should do the following:
+
+- Using the given variables `target` and `expressions`, find the defined function's name, formals, and body.
+- Create a `LambdaProcedure` instance using the formals and body. *Hint:* You can use what you've done in Problem 8
+- Bind the name to the `LambdaProcedure` instance
+
+```python
+def do_define_form(expressions, env):
+    """Evaluate a define form.
+
+    >>> # Problem 5
+    >>> env = create_global_frame()
+    >>> do_define_form(read_line("(x 2)"), env)
+    'x'
+    >>> scheme_eval("x", env)
+    2
+    >>> do_define_form(read_line("(x (+ 2 8))"), env)
+    'x'
+    >>> scheme_eval("x", env)
+    10
+    >>> # Problem 9
+    >>> env = create_global_frame()
+    >>> do_define_form(read_line("((f x) (+ x 2))"), env)
+    'f'
+    >>> scheme_eval(read_line("(f 3)"), env)
+    5
+    """
+    validate_form(expressions, 2) # Checks that expressions is a list of length at least 2
+    target = expressions.first
+    if scheme_symbolp(target):
+        validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
+        env.define(target, scheme_eval(expressions.rest.first, env))
+        return target
+    elif isinstance(target, Pair) and scheme_symbolp(target.first):
+        env.define(target.first, do_lambda_form(Pair(target.rest, expressions.rest), env))
+        return target.first
+    else:
+        bad_target = target.first if isinstance(target, Pair) else target
+        raise SchemeError('non-symbol: {0}'.format(bad_target))
+
+```
+
+#### Problem 10 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 10 -u
+```
+
+Implement the `make_child_frame` method of the `Frame` class which will be used to create new call frames for user-defined procedures. This method takes in two arguments: `formals`, which is a Scheme list of symbols, and `vals`, which is a Scheme list of values. It should return a new child frame, binding the formal parameters to the values.
+
+To do this:
+
+- If the number of argument values does not match with the number of formal parameters, raise a `SchemeError`. **(provided)**
+- Create a new `Frame` instance, the parent of which is `self`.
+- Bind each formal parameter to its corresponding argument value in the newly created frame. The first symbol in `formals` should be bound to the first value in `vals`, and so on. If the number of argument values does not match with the number of formal parameters, raise a `SchemeError`.
+- Return the new frame.
+
+> *Hint:* The `define` method of a `Frame` instance creates a binding in that frame.
+
+```python
+    def make_child_frame(self, formals, vals):
+        """Return a new local frame whose parent is SELF, in which the symbols
+        in a Scheme list of formal parameters FORMALS are bound to the Scheme
+        values in the Scheme list VALS. Raise an error if too many or too few
+        vals are given.
+
+        >>> env = create_global_frame()
+        >>> formals, expressions = read_line('(a b c)'), read_line('(1 2 3)')
+        >>> env.make_child_frame(formals, expressions)
+        <{a: 1, b: 2, c: 3} -> <Global Frame>>
+        """
+        if len(formals) != len(vals):
+            raise SchemeError('Incorrect number of arguments to function call')
+        # BEGIN PROBLEM 10
+        new_env = Frame(self) 
+        while formals != nil:
+            new_env.define(formals.first, vals.first)
+            formals, vals = formals.rest, vals.rest
+        return new_env
+        # END PROBLEM 10
+```
+
+#### Problem 11 (2 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 11 -u
+```
+
+Implement the `make_call_frame` method in `LambdaProcedure`, which is needed by `scheme_apply`. It should create and return a new `Frame` instance using the `make_child_frame` method of the appropriate parent frame, binding formal parameters to argument values.
+
+Since lambdas are lexically scoped, your new frame should be a child of the frame in which the lambda is defined. The `env` provided as an argument to `make_call_frame` is instead the frame in which the procedure is called, which will be useful as you implement dynamically scoped procedures in problem 15.
+
+```python
+    def make_call_frame(self, args, env):
+        """Make a frame that binds my formal parameters to ARGS, a Scheme list
+        of values, for a lexically-scoped call evaluated in my parent environment."""
+        # BEGIN PROBLEM 11
+        return self.env.make_child_frame(self.formals, args)
+        # END PROBLEM 11
+```
+
+## Part IV: Special Forms
+
+> **Important submission note:** For full credit:
+>
+> - submit with Parts III and IV complete by **Thursday, 8/6** (worth 1 pt), and
+> - submit the entire project by **Monday, 8/10**. You will get an extra credit point for submitting the entire project by Sunday, 8/9.
+
+Logical special forms include `if`, `and`, `or`, and `cond`. These expressions are special because not all of their sub-expressions may be evaluated.
+
+In Scheme, only `False` is a false value. All other values (including `0` and `nil`) are true values. You can test whether a value is a true or false value using the provided Python functions `is_true_primitive` and `is_false_primitive`, defined in `scheme_builtins.py`.
+
+> Note: Scheme traditionally uses `#f` to indicate the false Boolean value. In our interpreter, that is equivalent to `false` or `False`. Similarly, `true`, `True`, and `#t` are all equivalent. However when unlocking tests, use `#t` and `#f`.
+
+To get you started, we've provided an implementation of the `if` special form in the `do_if_form` function. Make sure you understand that implementation before starting the following questions.
+
+#### Problem 12 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 12 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#and) to understand the behavior of the `and` and `or` special forms!
+
+Implement `do_and_form` and `do_or_form` so that `and` and `or` expressions are evaluated correctly.
+
+The logical forms `and` and `or` are *short-circuiting*. For `and`, your interpreter should evaluate each sub-expression from left to right, and if any of these evaluates to a false value, then `#f` is returned. Otherwise, it should return the value of the last sub-expression. If there are no sub-expressions in an `and` expression, it evaluates to `#t`.
+
+```
+scm> (and)
+#t
+scm> (and 4 5 6)  ; all operands are true values
+6
+scm> (and 4 5 (+ 3 3))
+6
+scm> (and #t #f 42 (/ 1 0))  ; short-circuiting behavior of and
+#f
+```
+
+For `or`, evaluate each sub-expression from left to right. If any sub-expression evaluates to a true value, return that value. Otherwise, return `#f`. If there are no sub-expressions in an `or` expression, it evaluates to `#f`.
+
+```
+scm> (or)
+#f
+scm> (or 5 2 1)  ; 5 is a true value
+5
+scm> (or #f (- 1 1) 1)  ; 0 is a true value in Scheme
+0
+scm> (or 4 #t (/ 1 0))  ; short-circuiting behavior of or
+4
+```
+
+Remember that you can use the provided Python functions `is_true_primitive` and `is_false_primitive` to test boolean values.
+
+```python
+def do_and_form(expressions, env):
+    """Evaluate a (short-circuited) and form.
+
+    >>> env = create_global_frame()
+    >>> do_and_form(read_line("(#f (print 1))"), env)
+    False
+    >>> do_and_form(read_line("((print 1) (print 2) (print 3) (print 4) 3 #f)"), env)
+    1
+    2
+    3
+    4
+    False
+    """
+    # BEGIN PROBLEM 12
+    if expressions == nil:
+        return True
+    val = scheme_eval(expressions.first, env) 
+    while not val is False and expressions.rest != nil:
+        expressions = expressions.rest
+        val = scheme_eval(expressions.first, env) 
+    return val
+    # END PROBLEM 12
+
+def do_or_form(expressions, env):
+    """Evaluate a (short-circuited) or form.
+
+    >>> env = create_global_frame()
+    >>> do_or_form(read_line("(10 (print 1))"), env)
+    10
+    >>> do_or_form(read_line("(#f 2 3 #t #f)"), env)
+    2
+    >>> do_or_form(read_line("((begin (print 1) #f) (begin (print 2) #f) 6 (begin (print 3) 7))"), env)
+    1
+    2
+    6
+    """
+    # BEGIN PROBLEM 12
+    if expressions == nil:
+        return False
+    val = scheme_eval(expressions.first, env) 
+    while val is False and expressions.rest != nil:
+        expressions = expressions.rest
+        val = scheme_eval(expressions.first, env) 
+    return val
+    # END PROBLEM 12
+```
+
+#### Problem 13 (2 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 13 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#cond) to understand the behavior of the `cond` special form!
+
+Fill in the missing parts of `do_cond_form` so that it returns the value of the first result sub-expression corresponding to a true predicate, or the result sub-expression corresponding to `else`. Some special cases:
+
+- When the true predicate does not have a corresponding result sub-expression, return the predicate value.
+- When a result sub-expression of a `cond` case has multiple expressions, evaluate them all and return the value of the last expression. (*Hint*: Use `eval_all`.)
+
+Your implementation should match the following examples and the additional tests in `tests.scm`.
+
+```
+scm> (cond ((= 4 3) 'nope)
+           ((= 4 4) 'hi)
+           (else 'wait))
+hi
+scm> (cond ((= 4 3) 'wat)
+           ((= 4 4))
+           (else 'hm))
+#t
+scm> (cond ((= 4 4) 'here (+ 40 2))
+           (else 'wat 0))
+42
+```
+
+The value of a `cond` is `undefined` if there are no true predicates and no `else`. In such a case, `do_cond_form` should return `None`. If there is only an `else`, return its sub-expression. If it doesn't have one, return `#t`.
+
+```
+scm> (cond (False 1) (False 2))
+scm> (cond (else))
+#t
+```
+
+```python
+def do_cond_form(expressions, env):
+    """Evaluate a cond form.
+
+    >>> do_cond_form(read_line("((#f (print 2)) (#t 3))"), create_global_frame())
+    3
+    """
+    while expressions is not nil:
+        clause = expressions.first
+        validate_form(clause, 1)
+        if clause.first == 'else':
+            test = True
+            if expressions.rest != nil:
+                raise SchemeError('else must be last')
+        else:
+            test = scheme_eval(clause.first, env)
+        if is_true_primitive(test):
+            if clause.rest == nil:
+                return test
+            else: 
+                return eval_all(clause.rest, env)
+        expressions = expressions.rest
+```
+
+#### Problem 14 (1 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 14 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#let) to understand the behavior of the `let` special form!
+
+The `let` special form binds symbols to values locally, giving them their initial values. For example:
+
+```
+scm> (define x 5)
+x
+scm> (define y 'bye)
+y
+scm> (let ((x 42)
+           (y (* x 10)))  ; x refers to the global value of x, not 42
+       (list x y))
+(42 50)
+scm> (list x y)
+(5 bye)
+```
+
+Implement `make_let_frame`, which returns a child frame of `env` that binds the symbol in each element of `bindings` to the value of its corresponding expression. The `bindings` scheme list contains pairs that each contain a symbol and a corresponding expression.
+
+You may find the following functions and methods useful:
+
+- `validate_form`: this function can be used to validate the structure of each binding. It takes in a list `expr` of expressions and a `min` and `max` length. If `expr` is not a proper list or does not have between `min` and `max` items inclusive, it raises an error. If no `max` is passed in, the default is infinity.
+- `validate_formals`: this function validates that formal parameters are a Scheme list of symbols for which each symbol is distinct.
+- `make_child_frame`: this method of the `Frame` class (which you implemented in [Problem 11](https://inst.eecs.berkeley.edu/~cs61a/su20/proj/scheme/#problem-11)) takes a `Pair` of formal parameters (symbols) and a `Pair` of values, and returns a new frame with all the symbols bound to the corresponding values.
+
+```python
+def make_let_frame(bindings, env):
+    """Create a child frame of ENV that contains the definitions given in
+    BINDINGS. The Scheme list BINDINGS must have the form of a proper bindings
+    list in a let expression: each item must be a list containing a symbol
+    and a Scheme expression."""
+    if not scheme_listp(bindings):
+        raise SchemeError('bad bindings list in let form')
+    names, values = nil, nil
+    # BEGIN PROBLEM 14
+    while bindings != nil:
+        validate_form(bindings.first, 2, 2)
+        names = Pair(bindings.first.first, names)
+        values = Pair(scheme_eval(bindings.first.rest.first, env), values)
+        bindings = bindings.rest
+    validate_formals(names)
+    # END PROBLEM 14
+    return env.make_child_frame(names, values)
+```
+
+#### Problem 15 (2 pt)
+
+Before writing any code, test your understanding of the problem:
+
+```
+python3 ok -q 15 -u
+```
+
+> Read the [Scheme Specifications](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-spec.html#mu) to understand the behavior of the `mu` special form!
+
+All of the Scheme procedures we've seen so far use *lexical scoping:* the parent of the new call frame is the environment in which the procedure was **defined**. Another type of scoping, which is not standard in Scheme, is called *dynamic scoping:* the parent of the new call frame is the environment in which the procedure was **evaluated**. With dynamic scoping, calling the same procedure in different parts of your code can lead to different results (because of varying parent frames).
+
+In this problem, we will implement the `mu` special form, a non-standard Scheme expression type representing a procedure that is dynamically scoped.
+
+In the example below, we use the `mu` keyword instead of `lambda` to define a dynamically scoped procedure `f`:
+
+```
+scm> (define f (mu () (* a b)))
+f
+scm> (define g (lambda () (define a 4) (define b 5) (f)))
+g
+scm> (g)
+20
+```
+
+The procedure `f` does not have an `a` or `b` defined; however, because `f` gets called within the procedure `g`, it has access to the `a` and `b` defined in `g`'s frame.
+
+Implement `do_mu_form` to evaluate the `mu` special form. A `mu` expression is similar to a `lambda` expression, but evaluates to a `MuProcedure` instance that is **dynamically scoped**. Most of the `MuProcedure` class has been provided for you.
+
+In addition to filling out the body of `do_mu_form`, you'll need to complete the `MuProcedure` class so that when a call on such a procedure is executed, it is dynamically scoped. This means that when a `MuProcedure` created by a `mu` expression is called, the parent of the new call frame is the environment in which the call expression was **evaluated**. As a result, a `MuProcedure` does not need to store an environment as an instance attribute. It can refer to names in the environment from which it was called.
+
+Looking at `LambdaProcedure` should give you a clue about what needs to be done to `MuProcedure` to complete it. You will not need to modify any existing methods, but may wish to implement new ones.
+
+```python
+class MuProcedure(Procedure):
+    """A procedure defined by a mu expression, which has dynamic scope.
+     _________________
+    < Scheme is cool! >
+     -----------------
+            \   ^__^
+             \  (oo)\_______
+                (__)\       )\/\
+                    ||----w |
+                    ||     ||
+    """
+
+    def __init__(self, formals, body):
+        """A procedure with formal parameter list FORMALS (a Scheme list) and
+        Scheme list BODY as its definition."""
+        self.formals = formals
+        self.body = body
+
+    # BEGIN PROBLEM 15
+    def make_call_frame(self, args, env):
+        return env.make_child_frame(self.formals, args)
+    # END PROBLEM 15
+
+    def __str__(self):
+        return str(Pair('mu', Pair(self.formals, self.body)))
+
+    def __repr__(self):
+        return 'MuProcedure({0}, {1})'.format(
+            repr(self.formals), repr(self.body))
+
+def do_mu_form(expressions, env):
+    """Evaluate a mu form."""
+    validate_form(expressions, 2)
+    formals = expressions.first
+    validate_formals(formals)
+    # BEGIN PROBLEM 18
+    return MuProcedure(expressions.first, expressions.rest)
+    # END PROBLEM 18
+```
+
