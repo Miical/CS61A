@@ -1027,3 +1027,284 @@ def do_mu_form(expressions, env):
     # END PROBLEM 18
 ```
 
+## Part V: Write Some Scheme
+
+> **Important submission note:** For full credit:
+>
+> - submit the entire project by **Monday, 8/10**. You will get an extra credit point for submitting the entire project by Sunday, 8/9.
+>
+> Not only is your Scheme interpreter itself a tree-recursive program, but it is flexible enough to evaluate *other* recursive programs. Implement the following procedures in Scheme in the `questions.scm` file.
+>
+> In addition, for this part of the project, you may find the [built-in procedure reference](https://inst.eecs.berkeley.edu/~cs61a/su20/proj/scheme/) very helpful if you ever have a question about the behavior of any built-in Scheme procedures, like the difference between `pair?` and `list?`.
+
+The autograder tests for the interpreter are *not* comprehensive, so you may have uncaught bugs in your implementation. Therefore, you may find it useful to test your code for these questions in the staff interpreter or the [web editor](https://code.cs61a.org/scheme) and then try it in your own interpreter once you are confident your Scheme code is working.
+
+### Scheme Editor
+
+As you're writing your code, you can debug using the Scheme Editor. In your `scheme` folder you will find a new editor. To run this editor, run `python3 editor`. This should pop up a window in your browser; if it does not, please navigate to [localhost:31415](localhost:31415) and you should see it.
+
+Make sure to run `python3 ok` in a separate tab or window so that the editor keeps running.
+
+If you find that your code works in the online editor but not in your own interpreter, it's possible you have a bug in code from an earlier part that you'll have to track down. Every once in a while there's a bug that our tests don't catch, and if you find one you should let us know!
+
+### Problem 16 (1 pt)
+
+Implement the `enumerate` procedure, which takes in a list of values and returns a list of two-element lists, where the first element is the index of the value, and the second element is the value itself.
+
+```
+scm> (enumerate '(3 4 5 6))
+((0 3) (1 4) (2 5) (3 6))
+scm> (enumerate '())
+()
+```
+
+```scheme
+(define (enumerate s)
+  ; BEGIN PROBLEM 16
+  (define (helper pairs)
+    (if (null? (car pairs))
+        nil
+        (cons (list (caar pairs) (car (cadr pairs)))
+              (helper (list (cdar pairs) (cdr (cadr pairs)))))))
+  (define (range s n)
+    (if (< s n)
+        (cons s (range (+ s 1) n))
+        nil))
+  (helper (list (range 0 (length s)) s)))
+```
+
+### Problem 17 (2 pt)
+
+Implement the `list-change` procedure, which lists all of the ways to make change for a positive integer `total` amount of money, using a list of currency denominations, which is sorted in descending order. The resulting list of ways of making change should also be returned in descending order.
+
+To make change for 10 with the denominations (25, 10, 5, 1), we get the possibilities:
+
+```
+10
+5, 5
+5, 1, 1, 1, 1, 1
+1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+```
+
+To make change for 5 with the denominations (4, 3, 2, 1), we get the possibilities:
+
+```
+4, 1
+3, 2
+3, 1, 1
+2, 2, 1
+2, 1, 1, 1
+1, 1, 1, 1, 1
+```
+
+You may find that implementing a helper function, `cons-all`, will be useful for this problem. To implement `cons-all`, use the [built-in map procedure](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-builtins.html#map). `cons-all` takes in an element `first` and a list of lists `rests`, and adds `first` to the beginning of each list in `rests`:
+
+```
+scm> (cons-all 1 '((2 3) (2 4) (3 5)))
+((1 2 3) (1 2 4) (1 3 5))
+```
+
+You may also find the built-in [append procedure](https://inst.eecs.berkeley.edu/~cs61a/su20/articles/scheme-builtins.html#append) useful.
+
+```scheme
+; Some utility functions that you may find useful to implement.
+(define (cons-all first rests)
+  (if (null? rests)
+      nil
+      (cons (cons first (car rests))
+            (cons-all first (cdr rests)))))
+
+; END PROBLEM 16
+; ; Problem 17
+; ; List all ways to make change for TOTAL with DENOMS
+(define (list-change total denoms)
+  (if (= total 0)
+      (list nil)
+      (if (null? denoms)
+          nil
+          (append (if (<= (car denoms) total)
+                      (cons-all (car denoms)
+                                (list-change (- total (car denoms)) denoms))
+                      nil)
+                  (list-change total (cdr denoms))))))
+```
+
+### Problem 18 (2 pt)
+
+In Scheme, source code is data. Every non-atomic expression is written as a Scheme list, so we can write procedures that manipulate other programs just as we write procedures that manipulate lists.
+
+Rewriting programs can be useful: we can write an interpreter that only handles a small core of the language, and then write a procedure that converts other special forms into the core language before a program is passed to the interpreter.
+
+For example, the `let` special form is equivalent to a call expression that begins with a `lambda` expression. Both create a new frame extending the current environment and evaluate a body within that new environment. Feel free to revisit [Problem 15](https://inst.eecs.berkeley.edu/~cs61a/su20/proj/scheme/#problem-15-2-pt) as a refresher on how the `let` form works.
+
+```
+(let ((a 1) (b 2)) (+ a b))
+;; Is equivalent to:
+((lambda (a b) (+ a b)) 1 2)
+```
+
+These expressions can be represented by the following diagrams:
+
+Use this rule to implement a procedure called `let-to-lambda` that rewrites all `let` special forms into `lambda` expressions. If we quote a `let` expression and pass it into this procedure, an equivalent `lambda` expression should be returned: pass it into this procedure:
+
+```
+scm> (let-to-lambda '(let ((a 1) (b 2)) (+ a b)))
+((lambda (a b) (+ a b)) 1 2)
+scm> (let-to-lambda '(let ((a 1)) (let ((b a)) b)))
+((lambda (a) ((lambda (b) b) a)) 1)
+```
+
+In order to handle all programs, `let-to-lambda` must be aware of Scheme syntax. Since Scheme expressions are recursively nested, `let-to-lambda` must also be recursive. In fact, the structure of `let-to-lambda` is somewhat similar to that of `scheme_eval`--but in Scheme! As a reminder, atoms include numbers, booleans, nil, and symbols. You do not need to consider code that contains quasiquotation for this problem.
+
+```
+(define (let-to-lambda expr)
+  (cond ((atom?   expr) <rewrite atoms>)
+        ((quoted? expr) <rewrite quoted expressions>)
+        ((lambda? expr) <rewrite lambda expressions>)
+        ((define? expr) <rewrite define expressions>)
+        ((let?    expr) <rewrite let expressions>)
+        (else           <rewrite other expressions>)))
+```
+
+> *Hint*: You may want to implement `zip` at the top of `questions.scm` and also use the built-in `map` procedure.
+>
+> ```
+> scm> (zip '((1 2) (3 4) (5 6)))
+> ((1 3 5) (2 4 6))
+> scm> (zip '((1 2)))
+> ((1) (2))
+> scm> (zip '())
+> (() ())
+> ```
+
+```scheme
+; ; Converts all let special forms in EXPR into equivalent forms using lambda
+(define (let-to-lambda expr)
+  (cond 
+    ((atom? expr)
+     ; BEGIN PROBLEM 18
+     expr
+     ; END PROBLEM 18
+    )
+    ((quoted? expr)
+     ; BEGIN PROBLEM 18
+     expr
+     ; END PROBLEM 18
+    )
+    ((or (lambda? expr) (define? expr))
+     (let ((form (car expr))
+           (params (cadr expr))
+           (body (cddr expr)))
+       ; BEGIN PROBLEM 18
+       (append (list form)
+               (list params)
+               (let-to-lambda body))
+       ; END PROBLEM 18
+     ))
+    ((let? expr)
+     (let ((values (cadr expr))
+           (body (cddr expr)))
+       ; BEGIN PROBLEM 18
+       (append (list (append
+                      (list 'lambda (let-to-lambda (car (zip values))))
+                      (let-to-lambda body)))
+               (let-to-lambda (cadr (zip values))))
+       ; END PROBLEM 18
+     ))
+    (else
+     ; BEGIN PROBLEM 18
+     (define (helper expr)
+       (if (null? expr)
+           nil
+           (cons (let-to-lambda (car expr))
+                 (helper (cdr expr)))))
+     (helper expr)
+     ; END PROBLEM 18
+    )))
+```
+
+## Part VI: Extra Credit
+
+### Problem 19 (2 pt)
+
+Complete the function `optimize_tail_calls` in `scheme.py`. It returns an alternative to `scheme_eval` that is properly tail recursive. That is, the interpreter will allow an unbounded number of active [tail calls](http://en.wikipedia.org/wiki/Tail_call) in constant space.
+
+The `Thunk` class represents a [thunk](http://en.wikipedia.org/wiki/Thunk), an expression that needs to be evaluated in an environment. When `scheme_optimized_eval` receives a non-atomic expression in a `tail` context, then it returns an `Thunk` instance. Otherwise, it should repeatedly call `prior_eval_function` until the result is a value, rather than a `Thunk`.
+
+**A successful implementation will require changes to several other functions, including some functions that we provided for you.** All expressions throughout your interpreter that are in a tail context should be evaluated by calling `scheme_eval` with `True` as a third argument. Your goal is to determine which expressions are in a tail context throughout your code.
+
+Once you finish, uncomment the following line in `scheme.py` to use your implementation:
+
+```
+scheme_eval = optimize_tail_calls(scheme_eval)
+```
+
+```python
+def optimize_tail_calls(prior_eval_function):
+    """Return a properly tail recursive version of an eval function."""
+    def optimized_eval(expr, env, tail=False):
+        """Evaluate Scheme expression EXPR in environment ENV. If TAIL,
+        return a Thunk containing an expression for further evaluation.
+        """
+        if tail and not scheme_symbolp(expr) and not self_evaluating(expr):
+            return Thunk(expr, env)
+
+        result = Thunk(expr, env)
+        # BEGIN
+        while isinstance(result, Thunk):
+            result = prior_eval_function(result.expr, result.env)
+        return result
+        # END
+    return optimized_eval
+```
+
+### Problem 20 (1 pt)
+
+Macros allow the language itself to be extended by the user. Simple macros can be provided with the `define-macro` special form. This must be used like a procedure definition, and it creates a procedure just like `define`. However, this procedure has a special evaluation rule: it is applied to its arguments without first evaluating them. Then the result of this application is evaluated.
+
+This final evaluation step takes place in the caller's frame, as if the return value from the macro was literally pasted into the code in place of the macro.
+
+Here is a simple example:
+
+```
+scm> (define (map f lst) (if (null? lst) nil (cons (f (car lst)) (map f (cdr lst)))))
+scm> (define-macro (for formal iterable body)
+....     (list 'map (list 'lambda (list formal) body) iterable))
+scm> (for i '(1 2 3)
+....     (print (* i i)))
+1
+4
+9
+(None None None)
+```
+
+The code above defines a macro `for` that acts as a `map` except that it doesn't need a lambda around the body.
+
+In order to implement `define-macro`, implement complete the implementation for `do_define_macro`, which should create a `MacroProcedure` and bind it to the given name as in `do_define_form`. Then, update `scheme_eval` so that calls to macro procedures are evaluated correctly.
+
+> *Hint* : Use the `apply_macro` method in the `MacroProcedure` class to apply a macro to the operands in its call expression. This procedure is written to interact well with tail call optimization.
+
+```python
+def do_define_macro(expressions, env):
+    """Evaluate a define-macro form.
+    >>> env = create_global_frame()
+    >>> do_define_macro(read_line("((f x) (car x))"), env)
+    'f'
+    >>> scheme_eval(read_line("(f (1 2))"), env)
+    1
+    """
+    # BEGIN Problem 20
+    validate_form(expressions, 2)
+    target = expressions.first
+    if isinstance(target, Pair) and scheme_symbolp(target.first):
+        formals = target.rest
+        body = expressions.rest
+        macro_procedure = MacroProcedure(formals, body, env)
+        env.define(target.first, macro_procedure)
+        return target.first
+    else:
+        bad_target = target.first if isinstance(target, Pair) else target
+        raise SchemeError('non-symbol: {0}'.format(bad_target))
+    # END Problem 20 
+```
+
