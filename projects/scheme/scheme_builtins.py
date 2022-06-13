@@ -6,6 +6,7 @@ import math
 import numbers
 import operator
 import sys
+import builtins
 from scheme_reader import Pair, nil, repl_str
 
 
