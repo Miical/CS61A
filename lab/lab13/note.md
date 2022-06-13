@@ -33,7 +33,7 @@ CREATE TABLE [table_name] AS
 
 Let's say we want to make the following table called `big_game` which records the scores for the Big Game each year. This table has three columns: `berkeley`, `stanford`, and `year`.
 
-![img](https://inst.eecs.berkeley.edu/~cs61a/su20/lab/lab13/assets/big-game.png)
+![img](note.assets/big-game.png)
 
 We could do so with the following `CREATE TABLE` statement:
 
@@ -146,7 +146,7 @@ CREATE TABLE coaches AS
 
 When we join two or more tables, the default output is a [cartesian product](https://en.wikipedia.org/wiki/Cartesian_product). For example, if we joined `big_game` with `coaches`, we'd get the following:
 
-![img](https://inst.eecs.berkeley.edu/~cs61a/su20/lab/lab13/assets/joins.png)
+![img](note.assets/joins.png)
 
 If we want to match up each game with the coach that season, we'd have to compare columns from the two tables in the `WHERE` clause:
 
